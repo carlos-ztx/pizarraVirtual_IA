@@ -28,6 +28,8 @@ rango_de_volumen = volume.GetVolumeRange()
 volume.SetMasterVolumeLevel(-5, None)
 minVol = rango_de_volumen[0]
 maxVol = rango_de_volumen[1]
+volumen = 0
+volumen_barra = 280
 
 
 while True:
@@ -43,10 +45,10 @@ while True:
         cv2.circle(imagen,(x1,y1),15,(255,0,255),cv2.FILLED)
         cv2.circle(imagen,(x2,y2),15,(255,0,255),cv2.FILLED)
 
-        #cv2.line(imagen,(x1,y1),(x2,y2),(255,255,255), 1)
-
         distanciaRelativa, info, img = detector.findDistance((x1,y1), (x2, y2), imagen, color=(255, 0, 0), scale=10)
         print(distanciaRelativa)
+
+
 
         # RANGO DE LANDMARKS 20 - 300
         # rango_de_volumen -65 hasta 0
@@ -55,15 +57,17 @@ while True:
         print(volumen)
         volume.SetMasterVolumeLevel(volumen, None)
 
+        volumen_barra = np.interp(distanciaRelativa, [20, 300], [280, 30])
 
-        if distanciaRelativa < 50:
-            pass
+
+     # OPCIONAL
+    cv2.rectangle(imagen, (30,30),(65,280),(0,255,60),3)
+    cv2.rectangle(imagen, (30,int(volumen_barra)),(65,280),(0,255,60),cv2.FILLED)
 
     # cTime = time.time()
     # fps = 1/(cTime-pTime)
     # pTime = cTime
-
-    cv2.putText(imagen,f'FPS: {int(fps)}',(35, 35), cv2.FONT_HERSHEY_COMPLEX, 1, (255, 0, 0), 2)
+    #cv2.putText(imagen,f'FPS: {int(fps)}',(35, 35), cv2.FONT_HERSHEY_COMPLEX, 1, (255, 0, 0), 2)
 
     cv2.imshow("PANTALLAAAA", imagen)
     k = cv2.waitKey(1)
