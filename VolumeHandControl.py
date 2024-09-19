@@ -17,7 +17,7 @@ pTime = 0
 
 detector = htm.HandDetector(maxHands=1, detectionCon=0.7)
 
-
+##
 devices = AudioUtilities.GetSpeakers()
 interface = devices.Activate(
     IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
@@ -30,34 +30,53 @@ minVol = rango_de_volumen[0]
 maxVol = rango_de_volumen[1]
 volumen = 0
 volumen_barra = 280
+##
+
+area = 0
 
 
 while True:
+    # Capture imag
     exito, imagen = cap.read()
+
+    # Find Hand
     imagen = detector.findHands(imagen, draw = 0)
-    lmList = detector.findPosition(imagen, draw=False)
-    if len(lmList) != 0:
-        #print(lmList[4], lmList[8])
+    lmList, bbox = detector.findPosition(imagen, draw=False)
 
-        x1, y1 = lmList[4][1],lmList[4][2]
-        x2, y2 = lmList[8][1],lmList[8][2]
+    if len(lmList) != 0 and len(bbox) != 0:
 
-        cv2.circle(imagen,(x1,y1),15,(255,0,255),cv2.FILLED)
-        cv2.circle(imagen,(x2,y2),15,(255,0,255),cv2.FILLED)
+        x1, y1 = lmList[4][1], lmList[4][2]
+        x2, y2 = lmList[8][1], lmList[8][2]
 
-        distanciaRelativa, info, img = detector.findDistance((x1,y1), (x2, y2), imagen, color=(255, 0, 0), scale=10)
-        print(distanciaRelativa)
+        cv2.circle(imagen, (x1, y1), 15, (255, 0, 255), cv2.FILLED)
+        cv2.circle(imagen, (x2, y2), 15, (255, 0, 255), cv2.FILLED)
+
+        # Filter based on size
+        area = ((bbox[2]-bbox[0]) * (bbox[3]-bbox[1])) // 100
+        if 300<area<1200:
+            # Find Distance between index and Thumb
+            distanciaRelativa, info, img = detector.findDistance(lmList[4],lmList[8], imagen, color=(255, 0, 0), scale=10)
+            # print(f"Distancia entre lm: {distanciaRelativa}")
+
+            # Reduce Resolution to make it smoother
+            # Check finger up
+            # If pinky is down set volume
+            # Draw
+            # Frame rate
 
 
+            # RANGO DE LANDMARKS 20 - 300
+            # rango_de_volumen -65 hasta 0
 
-        # RANGO DE LANDMARKS 20 - 300
-        # rango_de_volumen -65 hasta 0
+            volumen = np.interp(distanciaRelativa,[15, 260], [minVol, maxVol]) # Se convierte el rango de distancia de las LANDMARKS a VOLUMEN MIN Y MAX
+            #print(f"Volumen del sistema: {volumen}")
+            volume.SetMasterVolumeLevel(volumen, None)
 
-        volumen = np.interp(distanciaRelativa,[20, 300], [minVol, maxVol])
-        print(volumen)
-        volume.SetMasterVolumeLevel(volumen, None)
+            volumen_barra = np.interp(distanciaRelativa, [15, 260], [280, 30]) # Se convierte la distancia de las landmarks al alto maximo y minimo de la barra
 
-        volumen_barra = np.interp(distanciaRelativa, [20, 300], [280, 30])
+            # imprimir el volumen como porcentaje de 0 a 100
+            volumen_texto = int(np.interp(distanciaRelativa, [15, 260], [0, 100])) # Se convierte la distancia de las landmarks a porcentaje de 0 a 100
+            cv2.putText(imagen, f'VOL: {volumen_texto}', (20, 350), cv2.FONT_HERSHEY_COMPLEX, 1, (255, 0, 0), 2)
 
 
      # OPCIONAL
