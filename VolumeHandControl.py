@@ -6,92 +6,83 @@ from comtypes import CLSCTX_ALL
 from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 
 
-##
-wCam, hCam = 640, 480
-##
+def main():
+    ##
+    wCam, hCam = 640, 480
+    cap = cv2.VideoCapture(0)
+    cap.set(3, wCam)
+    cap.set(4, hCam)
+    ##
+    detector = htm.HandDetector(maxHands=1, detectionCon=0.7)
+    pTime = 0
+    fps = 0
+    ##
+    devices = AudioUtilities.GetSpeakers()
+    interface = devices.Activate(
+        IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+    volume = interface.QueryInterface(IAudioEndpointVolume)
+    volumen_barra = np.interp(volume.GetMasterVolumeLevelScalar(), [0.0, 1.0], [280, 30])
+    volumen_porcentaje = int(np.interp(volume.GetMasterVolumeLevelScalar(), [0.0, 1.0], [0, 100]))
+    ##
 
-cap = cv2.VideoCapture(0)
-cap.set(3,wCam)
-cap.set(4,hCam)
-pTime = 0
+    while True:
+        # Capture imag
+        exito, imagen = cap.read()
+        # Find Hand
+        hands, imagen = detector.findHands(imagen, draw = 0)
+        lmList, bbox = detector.findPosition(imagen, draw = 0, color=(127,22,69))
 
-detector = htm.HandDetector(maxHands=1, detectionCon=0.7)
+        if len(lmList) != 0 and len(bbox) != 0 and hands:
+            fingerUplist = detector.fingersUp(hands[0])
+            # Filtro basado en tamaño del cuadrado al rededor de la mano
+            area = ((bbox[2]-bbox[0]) * (bbox[3]-bbox[1])) // 100
+            if 100<area<700:
+                # Find Distance between index and Thumb
+                distanciaRelativa, info, img = detector.findDistance(lmList[4], lmList[8], imagen, color=(255, 0, 0),
+                                                                     scale=10)
+                if fingerUplist[4] == 0:
+                    # Convert Volume
+                    volumen_barra = np.interp(distanciaRelativa, [20, 260], [280,30])  # Se convierte la distancia de las landmarks al alto maximo y minimo de la barra
+                    volumen_porcentaje = int(np.interp(distanciaRelativa, [20, 260], [0, 100]))  # VLS (0.0,1.0) convert to (0,100)
+                    # Reduce Resolution to make it smoother
+                    smoothness = 5
+                    volumen_porcentaje = smoothness * round(volumen_porcentaje/smoothness)
+                    volumen_barra = smoothness * round(volumen_barra/smoothness)
+                    # Check finger up
+                    fingerUplist = detector.fingersUp(hands[0])
+                    # If pinky is down set volume
 
-##
-devices = AudioUtilities.GetSpeakers()
-interface = devices.Activate(
-    IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-volume = interface.QueryInterface(IAudioEndpointVolume)
-#volume.GetMute()
-#volume.GetMasterVolumeLevel()k
-rango_de_volumen = volume.GetVolumeRange()
-volume.SetMasterVolumeLevel(-5, None)
-minVol = rango_de_volumen[0]
-maxVol = rango_de_volumen[1]
-volumen = 0
-volumen_barra = 280
-##
+                    volume.SetMasterVolumeLevelScalar(volumen_porcentaje / 100, None)
+                    # Draw
 
-area = 0
-
-
-while True:
-    # Capture imag
-    exito, imagen = cap.read()
-
-    # Find Hand
-    imagen = detector.findHands(imagen, draw = 0)
-    lmList, bbox = detector.findPosition(imagen, draw=False)
-
-    if len(lmList) != 0 and len(bbox) != 0:
-
-        x1, y1 = lmList[4][1], lmList[4][2]
-        x2, y2 = lmList[8][1], lmList[8][2]
-
-        cv2.circle(imagen, (x1, y1), 15, (255, 0, 255), cv2.FILLED)
-        cv2.circle(imagen, (x2, y2), 15, (255, 0, 255), cv2.FILLED)
-
-        # Filter based on size
-        area = ((bbox[2]-bbox[0]) * (bbox[3]-bbox[1])) // 100
-        if 300<area<1200:
-            # Find Distance between index and Thumb
-            distanciaRelativa, info, img = detector.findDistance(lmList[4],lmList[8], imagen, color=(255, 0, 0), scale=10)
-            # print(f"Distancia entre lm: {distanciaRelativa}")
-
-            # Reduce Resolution to make it smoother
-            # Check finger up
-            # If pinky is down set volume
-            # Draw
-            # Frame rate
+        else:
+            volumen_barra = np.interp(volume.GetMasterVolumeLevelScalar(), [0.0, 1.0], [280, 30])
+            volumen_porcentaje = int(np.interp(volume.GetMasterVolumeLevelScalar(), [0.0, 1.0], [0, 100]))
 
 
-            # RANGO DE LANDMARKS 20 - 300
-            # rango_de_volumen -65 hasta 0
+        # OPCIONAL
+        cv2.putText(imagen, f'VOL: {volumen_porcentaje}', (20, 350), cv2.FONT_HERSHEY_COMPLEX, 1, (255, 0, 0), 2)
+        cv2.rectangle(imagen, (30,30),(65,280),(0,255,60),3)
+        cv2.rectangle(imagen, (30,int(volumen_barra)),(65,280),(0,255,60),cv2.FILLED)
 
-            volumen = np.interp(distanciaRelativa,[15, 260], [minVol, maxVol]) # Se convierte el rango de distancia de las LANDMARKS a VOLUMEN MIN Y MAX
-            #print(f"Volumen del sistema: {volumen}")
-            volume.SetMasterVolumeLevel(volumen, None)
+        # Frame rate
+        cTime = time.time()
+        fps = 1 / (cTime - pTime)
+        pTime = cTime
+        h, w, c = imagen.shape
+        (txt_width, txt_height), baseline = cv2.getTextSize(f'FPS: {int(fps)}', cv2.FONT_HERSHEY_COMPLEX, 1, 2)
+        x = w - txt_width - 10
+        y = h - txt_height - 10
+        cv2.putText(imagen, f'FPS: {int(fps)}', (x, y), cv2.FONT_HERSHEY_COMPLEX, 1, (255, 0, 0), 2)
 
-            volumen_barra = np.interp(distanciaRelativa, [15, 260], [280, 30]) # Se convierte la distancia de las landmarks al alto maximo y minimo de la barra
+        cv2.imshow("PANTALLAAAA", imagen)
+        k = cv2.waitKey(1)
+        if k == ord("k"):
+            break
 
-            # imprimir el volumen como porcentaje de 0 a 100
-            volumen_texto = int(np.interp(distanciaRelativa, [15, 260], [0, 100])) # Se convierte la distancia de las landmarks a porcentaje de 0 a 100
-            cv2.putText(imagen, f'VOL: {volumen_texto}', (20, 350), cv2.FONT_HERSHEY_COMPLEX, 1, (255, 0, 0), 2)
 
+    cap.release()
+    cv2.destroyAllWindows()
 
-     # OPCIONAL
-    cv2.rectangle(imagen, (30,30),(65,280),(0,255,60),3)
-    cv2.rectangle(imagen, (30,int(volumen_barra)),(65,280),(0,255,60),cv2.FILLED)
-
-    # cTime = time.time()
-    # fps = 1/(cTime-pTime)
-    # pTime = cTime
-    #cv2.putText(imagen,f'FPS: {int(fps)}',(35, 35), cv2.FONT_HERSHEY_COMPLEX, 1, (255, 0, 0), 2)
-
-    cv2.imshow("PANTALLAAAA", imagen)
-    k = cv2.waitKey(1)
-    if k == ord("k"):
-        break
-
-cap.release()
-cv2.destroyAllWindows()
+if __name__ == "__main__":
+    main()
