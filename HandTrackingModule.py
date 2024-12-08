@@ -2,7 +2,9 @@ import math
 import time
 import cv2
 import mediapipe as mp
-
+"""
+Montar presentación con el proyecto
+"""
 
 class HandDetector():
     def __init__(self, mode=False, maxHands=2, complex=1, detectionCon=0.5, trackCon=0.5):
@@ -19,7 +21,7 @@ class HandDetector():
         self.fingers = []
         self.lmList = []
 
-    def findHands(self, img, draw=True, flipType=True):
+    def findHands(self, img, draw=True, drawRectangle = False, flipType=True):
         """
         Finds hands in a BGR image.
         :param img: Image to find the hands in.
@@ -44,10 +46,9 @@ class HandDetector():
                     yList.append(py)
 
                 ## bbox
-                xmin, xmax = min(xList), max(xList)
-                ymin, ymax = min(yList), max(yList)
-                boxW, boxH = xmax - xmin, ymax - ymin
-                bbox = xmin, ymin, boxW, boxH
+                x_min, x_max = min(xList), max(xList)
+                y_min, y_max = min(yList), max(yList)
+                bbox = x_min, y_min, x_max, y_max
                 cx, cy = bbox[0] + (bbox[2] // 2), \
                          bbox[1] + (bbox[3] // 2)
 
@@ -68,11 +69,9 @@ class HandDetector():
                 if draw:
                     self.mpDraw.draw_landmarks(img, handLms,
                                                self.mpHands.HAND_CONNECTIONS)
-                    cv2.rectangle(img, (bbox[0] - 20, bbox[1] - 20),
-                                  (bbox[0] + bbox[2] + 20, bbox[1] + bbox[3] + 20),
-                                  (255, 0, 255), 2)
-                    cv2.putText(img, myHand["type"], (bbox[0] - 30, bbox[1] - 30), cv2.FONT_HERSHEY_PLAIN,
-                                2, (255, 0, 255), 2)
+                if drawRectangle:
+                    self.drawRectangle(img, bbox,txt = myHand["type"])
+
 
         return allHands, img
 
@@ -85,7 +84,7 @@ class HandDetector():
         if self.results.multi_hand_landmarks:
             myHand = self.results.multi_hand_landmarks[handNumber]
             for id, lm in enumerate(myHand.landmark):
-                h, w, c = img.shape  # se obtiene la altura, ancho y profundidad de la imagen
+                h, w, c = img.shape  # se obtiene la altura, ancho y profundidad (creo) de la imagen
                 cx, cy = int(lm.x * w), int(lm.y * h)  # se multiplica lass coordenadas de los landmark con la altura y anchura de la imagen
                 lmlist.append([id, cx, cy])
                 lista_x.append(cx)
@@ -99,10 +98,13 @@ class HandDetector():
             y_min, y_max = min(lista_y), max(lista_y)
             bbox = x_min, y_min, x_max, y_max
 
-            cv2.rectangle(img, (bbox[0] - 20 ,bbox[1] - 20), (bbox[2] + 20 ,bbox[3] + 20),(0,255,0),2)
-
-
         return lmlist, bbox
+
+    def drawRectangle(self,img, bbox,color=(255, 0, 255), txt = ""):
+        if img is not None and len(bbox) !=0:
+            cv2.rectangle(img, (bbox[0] - 20, bbox[1] - 20), (bbox[2] + 20, bbox[3] + 20), color, 2)
+            cv2.putText(img, txt, (bbox[0] - 30, bbox[1] - 30), cv2.FONT_HERSHEY_PLAIN,
+                        2, (255, 0, 255), 2)
 
     def fingersUp(self, myHand):
         """

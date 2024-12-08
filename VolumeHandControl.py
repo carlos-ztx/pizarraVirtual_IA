@@ -15,7 +15,7 @@ def main():
     ##
     detector = htm.HandDetector(maxHands=1, detectionCon=0.7)
     pTime = 0
-    fps = 0
+    #fps = 0
     ##
     devices = AudioUtilities.GetSpeakers()
     interface = devices.Activate(
@@ -37,6 +37,7 @@ def main():
             # Filtro basado en tamaño del cuadrado al rededor de la mano
             area = ((bbox[2]-bbox[0]) * (bbox[3]-bbox[1])) // 100
             if 100<area<700:
+                detector.drawRectangle(imagen, bbox, txt=hands[0]["type"])
                 # Find Distance between index and Thumb
                 distanciaRelativa, info, img = detector.findDistance(lmList[4], lmList[8], imagen, color=(255, 0, 0),
                                                                      scale=10)
